@@ -41,7 +41,8 @@ enum mode {
 static struct option long_options[] = {
 	{"help",    no_argument,       0, 'h'},
 	{"all",     no_argument,       0, 'a'},
-	{0,        0,                 0,  0 }
+	{"quiet",   no_argument,       0, 'q'},
+	{0,         0,                 0,  0 }
 };
 
 void usage(void)
@@ -49,6 +50,7 @@ void usage(void)
     printf("Usage: %s [OPTIONS...] [name=value]\n", (*_NSGetArgv())[0]);
     printf("\t-h, --help         Print this help\n");
     printf("\t-a, --all          Show all saved offsets\n");
+    printf("\t-q, --quiet        Don't print names of offsets\n");
     if (offset_options) printf("\t-u, --unrestrict   Get/Set unrestrict settings instead of offsets\n");
 }
 
@@ -187,6 +189,7 @@ int main(int argc, char * const* argv) {
     enum operation op = OP_UNDEFINED;
     enum mode mode = MODE_OFFSETS;
     bool found_offsets = true;
+    bool quiet = false;
     char c;
     kern_return_t err;
 
@@ -236,7 +239,7 @@ int main(int argc, char * const* argv) {
     if (debug && offset_options) fprintf(stderr, "unrestrict-options at 0x%llx: 0x%llx\n", offset_options, rk64(offset_options));
     if (debug && offset_cr_flags) fprintf(stderr, "checkrain-flags at 0x%llx: 0x%llx\n", offset_cr_flags, rk64(offset_cr_flags));
 
-    while ((c = getopt_long(argc, argv, "ahud", long_options, &option_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "adhqu", long_options, &option_index)) != -1) {
         switch (c) {
             case 'a':
                 if (op != OP_UNDEFINED) {
@@ -257,6 +260,9 @@ int main(int argc, char * const* argv) {
             case 'h':
                 usage();
                 exit(0);
+                break;
+            case 'q':
+                quiet = true;
                 break;
             case 'd':
                 debug++;
@@ -323,7 +329,8 @@ int main(int argc, char * const* argv) {
             }
         } else {
             if (mode == MODE_OFFSETS) {
-                printf("%s=0x%llx\n", argv[i], get_offset(argv[i]));
+                if (!quiet) printf("%s=", argv[i]);
+                printf("0x%llx\n", get_offset(argv[i]));
             } else if (mode == MODE_UNRESTRICT) {
                 if (strcmp(name, "GET_TASK_ALLOW")==0) {
                     printf("GET_TASK_ALLOW=%s\n", OPT(GET_TASK_ALLOW)?"yes":"no");
@@ -364,7 +371,8 @@ int main(int argc, char * const* argv) {
                 blob_size = export_cache_blob(&blob);
                 offset_entry_t *np;
                 TAILQ_FOREACH(np, &blob->cache, entries) {
-                    printf("%s=0x%llx\n", np->name, np->addr);
+                    if (!quiet) printf("%s=", np->name);
+                    printf("0x%llx\n", np->addr);
                 }
                 free(blob);
             } else if (mode == MODE_UNRESTRICT) {
